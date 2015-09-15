@@ -6,38 +6,44 @@ import functions as f
 import os
 
 # delete old vtk files from previous runs
-os.system('rm -r vtkoutput')
+if os.path.exists('./vtkoutput'):
+    os.system('rm -r vtkoutput')
 
 # parameters
 dim = 2                             # number of spacial dimensions
-N = 100                             # number of colloidal particles
+N = 25                               # number of colloidal particles
 pos = zeros((N,dim))                # array for storing particle positions
 vel = zeros((N,dim))                # array for storing particle velocities
 force = zeros((N,dim))              # array to store particle forces
 efield = zeros(dim)                 # array to store efield vector
 eMag = 10.0                         # magnitude of the efield
-rad = 1.0                           # particle radius (microns)
-density = 5.0                       # particle density (micro-grams/micron^3)
-vol = 4.0/3.0*pi*rad**3             # particle volume (microns^3)
-mass = density*vol                  # particle mass (micro-grams)
-vel_spread = 2.0                    # std 4 velocity generator (micron/microsec)
+rad = 1.0                           # particle radius
+density = 3.0/(4.0*pi)*10           # particle density
+vol = 4.0/3.0*pi*rad**3             # particle volume
+mass = density*vol                  # particle mass
+kb = 1.0                            # Boltzmann Constant
+temp = 1.0                          # temperature in Kelvin
+max_vel = 10.0                      # maximum particle velocity allowed
+vel_spread = sqrt(kb*temp/(mass))   # std 4 velocity generator (micron/microsec)
 
 # integration scheme parameters
-dt = 0.001                           # time step (micro-seconds)
-steps = 2500                        # number of steps to integrate
+dt = 0.001                          # time step (mili-seconds)
+steps = 100000                      # number of steps to integrate
 total_time = dt*steps               # total simulation time
+print 'total time = '+str(total_time)+' time units'
 
 # file io parameters
-skip = 10                           # how many steps to skip between outputs
+skip = 100                          # how many steps to skip between outputs
 description = 'particle'            # a description of the type of vtk data
 
 # particle interaction parameters
-sigma = 1.0                         # the leonard-jones parameter particle-part-
-                                    # icle interactions.
+eps = 1.0                           # the leonard-jones energy parameter
+sigma = 1.0                         # the leonard-jones length parameter
 
 # simulation domain
-L = 100.0                           # box length (microns)
+L = 50.0                             # box length (microns)
 box = zeros(dim)                    # initialize box
+ao = 4.0*rad                        # lattice constant
 for i in range(len(box)):
     box[i] = L                      # set box dimensions
 
@@ -45,10 +51,17 @@ for i in range(len(box)):
 # ize and their dipoles rotate to align with the electric field direction
 
 efield[0] = eMag                    # set direction and magnitude of efield
-pos = f.pos_init(pos,dim,box,rad)   # initialize positions
-# pos[0] = array([50.0,45.0])
-# pos[1] = array([50.0,60.0])
-vel = f.vel_init(vel,dim,vel_spread)# initialize velocities
+
+# randomely initialize positions
+# pos = f.pos_init_rand(pos,dim,box,rad)
+
+# initialize pos on lattice w/noise
+pos,box,eflag = f.pos_init_lat(pos,dim,box,rad,ao,N)
+if eflag:
+    quit()
+
+# initialize velocities
+vel = f.vel_init(vel,dim,vel_spread)
 
 # write initial particle positions to vtk file
 f.write_point_data_vtk(description,pos,N,dim,1)
@@ -72,12 +85,20 @@ for step in range(steps):
             rij_mag,rij_unit = f.calc_rij_pbc(ri,rj,dim,box)
 
             # get force on particle i from particle j
-            fmag = f.calc_repulsion_force(rij_mag,rad,sigma)
+            fmag = f.calc_repulsion_force(rij_mag,rad,sigma,eps)
             force[i] = force[i] + fmag*rij_unit
 
             # applying Newton's third law to get force on particle j from part-
             # icle j
             force[j] = force[j] - fmag*rij_unit
+
+            if rij_mag < rad:
+                print 'particle separation distance less than 2.1*rad',
+                print ' for part pair '+str(i)+','+str(j)
+                print 'part i pos = '+str(ri)+', part j pos = '+str(rj)
+                print 'rij_unit = '+str(rij_unit)
+                print 'step = '+str(step)
+                quit()
 
     # update the velocities and then positions based on the calculated forces
     for i in range(N):
@@ -85,6 +106,10 @@ for step in range(steps):
         ai = 1/mass*force[i]
         # update the velocity of particle i using its acceleration
         vel[i] = vel[i] + dt*ai
+        # enforce maximum particle velocity
+        vel_mag = linalg.norm(vel[i])
+        if vel_mag > max_vel:
+            vel[i] = max_vel
         # update the position of particle i using its updated velocity
         pos[i] = pos[i] + dt*vel[i]
         # implement periodic boundary conditions
