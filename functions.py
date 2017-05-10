@@ -35,6 +35,20 @@ def pos_init_rand(pos,dim,box,rad):
 
     return pos;
 
+def pos_init_dipole_test(pos,box):
+    """Function for generating specific particle configurations for testing the
+    dipole-dipole interaction force calculation.
+    """
+
+    import numpy as np
+
+    pos[0] = np.array([5.0, 5.0, 2.0])
+    pos[1] = np.array([5.0, 5.0, 7.0])
+    L = 10.0
+    box[:] = L
+
+    return pos,box
+
 def pos_init_lat(pos,dim,box,rad,ao,N):
     """
     This function initializes the particle positions on a regular lattice with a
@@ -100,7 +114,7 @@ def pos_init_lat(pos,dim,box,rad,ao,N):
             for j in range(Nd):
                 for i in range(Nd):
                     noise_dir = random_unit_vec(dim)
-                    ind = j*Nd + i
+                    ind = k*Nd*Nd + j*Nd + i
                     xpos = ao/2.0 + i*ao
                     ypos = ao/2.0 + j*ao
                     zpos = ao/2.0 + k*ao
@@ -152,8 +166,9 @@ def calc_rij_pbc(ri,rj,dim,box):
     rij_mag = n.sqrt(rij_mag)
 
     # calculate unit vector with pbc
-    unit_mag = n.linalg.norm(rij_unit)
-    rij_unit = 1/unit_mag*rij_unit
+#    unit_mag = n.linalg.norm(rij_unit)
+#    rij_unit = 1/unit_mag*rij_unit
+    rij_unit = rij_unit/rij_mag
 
     return rij_mag,rij_unit;
 
@@ -190,6 +205,49 @@ def calc_repulsion_force(rij,rad,sigma,eps):
     rep_force = 48.0*eps*(sigma/(rij-rad))**(13)
 
     return rep_force;
+
+def calc_dipole_force(rhat,rij,rad,efield,emag):
+    """
+    This function calculates the electric dipole-dipole interaction force
+    for particles i and j. It assumes dipoles are induced by an external
+    electric field and always point in the direction of this electric field.
+    It takes the separation vector rij and radius of the particle pair as well
+    as the electric field vector as inputs and returns the dipole force.
+
+    The force is calculated in polar coordinates and is returned as a radial
+    component (i.e. the direction along the particle pair's separation vector)
+    and a theta component which points in the direction of theta rotation.
+    Theta is the angle between the electric field and separation vector. The
+    theta direction is always perpendicular to the radial direction and is
+    in the plane defined by the electric field vector and the separation vector.
+    """
+
+    import numpy as np
+
+    # calculate theta
+    theta = np.arccos(np.dot(rij*rhat,efield)/(emag*rij))
+
+    # calculate theta hat vector
+    normal = np.cross(efield,rhat)
+    th_hat = np.cross(normal,rhat)
+    th_mag = np.linalg.norm(th_hat)
+    if (th_mag > 0):
+        th_hat = th_hat/th_mag
+
+    # calculate the dipole force
+    f_dip = rad**6.0*emag**2.0*rij**(-4.0)*((1.0-3*np.cos(theta)**2.0)*rhat-np.sin(2*theta)*th_hat)
+    
+    return f_dip
+    
+def velocity_half_kick(vel,force,mass,dt):
+    """
+    this function updates velocities by half the time step
+    """
+
+    import numpy as np
+    for i in range(len(vel)):
+        vel[i] = vel[i]+1/2*force[i]/mass*dt
+
 
 def write_point_data_vtk(description,numpy_array,N,dim,step):
     """

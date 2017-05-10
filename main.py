@@ -11,12 +11,12 @@ if os.path.exists('./vtkoutput'):
 
 # parameters
 dim = 2                             # number of spacial dimensions
-N = 25                               # number of colloidal particles
+N = 25                              # number of colloidal particles
 pos = zeros((N,dim))                # array for storing particle positions
 vel = zeros((N,dim))                # array for storing particle velocities
 force = zeros((N,dim))              # array to store particle forces
 efield = zeros(dim)                 # array to store efield vector
-eMag = 10.0                         # magnitude of the efield
+eMag = 1.0                          # magnitude of the efield
 rad = 1.0                           # particle radius
 density = 3.0/(4.0*pi)*10           # particle density
 vol = 4.0/3.0*pi*rad**3             # particle volume
@@ -27,8 +27,8 @@ max_vel = 10.0                      # maximum particle velocity allowed
 vel_spread = sqrt(kb*temp/(mass))   # std 4 velocity generator (micron/microsec)
 
 # integration scheme parameters
-dt = 0.001                          # time step (mili-seconds)
-steps = 100000                      # number of steps to integrate
+dt = 0.005                          # time step (mili-seconds)
+steps = 10000                       # number of steps to integrate
 total_time = dt*steps               # total simulation time
 print 'total time = '+str(total_time)+' time units'
 
@@ -41,7 +41,7 @@ eps = 1.0                           # the leonard-jones energy parameter
 sigma = 1.0                         # the leonard-jones length parameter
 
 # simulation domain
-L = 50.0                             # box length (microns)
+L = 15.0                            # box length (microns)
 box = zeros(dim)                    # initialize box
 ao = 4.0*rad                        # lattice constant
 for i in range(len(box)):
@@ -50,7 +50,10 @@ for i in range(len(box)):
 # initialize system assuming electric field is on and particles instantly polar-
 # ize and their dipoles rotate to align with the electric field direction
 
-efield[0] = eMag                    # set direction and magnitude of efield
+efield[dim-1] = eMag                # set direction and magnitude of efield
+
+# dipole interaction testing intitialization
+#pos,box = f.pos_init_dipole_test(pos,box)
 
 # randomely initialize positions
 # pos = f.pos_init_rand(pos,dim,box,rad)
@@ -92,9 +95,14 @@ for step in range(steps):
             # icle j
             force[j] = force[j] - fmag*rij_unit
 
+            # add in dipole force
+#            fdip = f.calc_dipole_force(rij_unit,rij_mag,rad,efield,eMag)
+#            force[i] = force[i] + fdip
+#            force[j] = force[j] - fdip
+
             if rij_mag < rad:
                 print 'particle separation distance less than 2.1*rad',
-                print ' for part pair '+str(i)+','+str(j)
+                print 'for part pair '+str(i)+','+str(j)
                 print 'part i pos = '+str(ri)+', part j pos = '+str(rj)
                 print 'rij_unit = '+str(rij_unit)
                 print 'step = '+str(step)
@@ -107,15 +115,15 @@ for step in range(steps):
         # update the velocity of particle i using its acceleration
         vel[i] = vel[i] + dt*ai
         # enforce maximum particle velocity
-        vel_mag = linalg.norm(vel[i])
-        if vel_mag > max_vel:
-            vel[i] = max_vel
+#        vel_mag = linalg.norm(vel[i])
+#        if vel_mag > max_vel:
+#            vel[i] = max_vel
         # update the position of particle i using its updated velocity
         pos[i] = pos[i] + dt*vel[i]
         # implement periodic boundary conditions
         f.enforce_pbc(pos[i],dim,box)
 
-    # write output ever skip steps
+    # write output every 'skip' steps
     if step > 0:
         if (step % skip) == 0:
             f.write_point_data_vtk(description,pos,N,dim,step)
