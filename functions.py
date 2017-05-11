@@ -29,14 +29,15 @@ def pos_init_rand(pos,dim,box,rad):
                 ri = pos[i]
                 rj = pos[k]
                 rmag,runit = calc_rij_pbc(ri,rj,dim,box)
-                if rmag < 2.0*rad:
+                if rmag < 2.2*rad:
                     tooClose = True
                     break
 
     return pos;
 
 def pos_init_dipole_test(pos,box):
-    """Function for generating specific particle configurations for testing the
+    """
+    Function for generating specific particle configurations for testing the
     dipole-dipole interaction force calculation.
     """
 
@@ -239,16 +240,6 @@ def calc_dipole_force(rhat,rij,rad,efield,emag):
     
     return f_dip
     
-def velocity_half_kick(vel,force,mass,dt):
-    """
-    this function updates velocities by half the time step
-    """
-
-    import numpy as np
-    for i in range(len(vel)):
-        vel[i] = vel[i]+1/2*force[i]/mass*dt
-
-
 def write_point_data_vtk(description,numpy_array,N,dim,step):
     """
     This function takes a numpy array that stores 1-, 2-, or 3-dimensional point
