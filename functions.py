@@ -167,9 +167,8 @@ def calc_rij_pbc(ri,rj,dim,box):
     rij_mag = n.sqrt(rij_mag)
 
     # calculate unit vector with pbc
-#    unit_mag = n.linalg.norm(rij_unit)
-#    rij_unit = 1/unit_mag*rij_unit
-    rij_unit = rij_unit/rij_mag
+    unit_mag = n.linalg.norm(rij_unit)
+    rij_unit = rij_unit/unit_mag
 
     return rij_mag,rij_unit;
 
@@ -207,7 +206,7 @@ def calc_repulsion_force(rij,rad,sigma,eps):
 
     return rep_force;
 
-def calc_dipole_force(rhat,rij,rad,efield,emag):
+def calc_dipole_force(rhat,rij,rad,efield,emag,dim):
     """
     This function calculates the electric dipole-dipole interaction force
     for particles i and j. It assumes dipoles are induced by an external
@@ -229,14 +228,22 @@ def calc_dipole_force(rhat,rij,rad,efield,emag):
     theta = np.arccos(np.dot(rij*rhat,efield)/(emag*rij))
 
     # calculate theta hat vector
-    normal = np.cross(efield,rhat)
-    th_hat = np.cross(normal,rhat)
-    th_mag = np.linalg.norm(th_hat)
-    if (th_mag > 0):
-        th_hat = th_hat/th_mag
+    if (dim == 3):
+        normal = np.cross(efield,rhat)
+        th_hat = np.cross(normal,rhat)
+        th_mag = np.linalg.norm(th_hat)
+        if (th_mag > 0):
+            th_hat = th_hat/th_mag
+    elif (dim == 2):
+        # 2D case
+        th_hat = np.array([-rhat[0],rhat[1]]) # 90 degree counter-clockwise rotation of rhat
+    else:
+        print "Cannot calculate dipole-dipole forces for 1-D simulation!"
+        quit()
 
     # calculate the dipole force
     f_dip = rad**6.0*emag**2.0*rij**(-4.0)*((1.0-3*np.cos(theta)**2.0)*rhat-np.sin(2*theta)*th_hat)
+    #print "theta= %s, rij = %s, rhat = %s, emag = %s, efield = %s" %(theta,rij,rhat,emag,efield)
     
     return f_dip
     

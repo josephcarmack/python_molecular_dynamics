@@ -15,12 +15,12 @@ if os.path.exists('./vtkoutput'):
 
 # parameters
 dim = 2                             # number of spacial dimensions
-N = 9                              # number of colloidal particles
+N = 25                              # number of colloidal particles
 pos = zeros((N,dim))                # array for storing particle positions
 vel = zeros((N,dim))                # array for storing particle velocities
 force = zeros((N,dim))              # array to store particle forces
 efield = zeros(dim)                 # array to store efield vector
-eMag = 1.0                          # magnitude of the efield
+eMag = 12.0                          # magnitude of the efield
 rad = 1.0                           # particle radius
 density = 3.0/(4.0*pi)*10           # particle density
 vol = 4.0/3.0*pi*rad**3             # particle volume
@@ -34,7 +34,7 @@ brownian_str = 15.0                 # strength of brownian motion
 
 # integration scheme parameters
 dt = 0.001                          # time step (mili-seconds)
-steps = 100000                       # number of steps to integrate
+steps = 500000                       # number of steps to integrate
 total_time = dt*steps               # total simulation time
 print 'total time = '+str(total_time)+' time units'
 
@@ -63,12 +63,12 @@ efield[dim-1] = eMag                # set direction and magnitude of efield
 #pos,box = f.pos_init_dipole_test(pos,box)
 
 # randomely initialize positions
-pos = f.pos_init_rand(pos,dim,box,rad)
+#pos = f.pos_init_rand(pos,dim,box,rad)
 
 # initialize pos on lattice w/noise
-#pos,box,eflag = f.pos_init_lat(pos,dim,box,rad,ao,N)
-#if eflag:
-#    quit()
+pos,box,eflag = f.pos_init_lat(pos,dim,box,rad,ao,N)
+if eflag:
+    quit()
 
 # initialize velocities
 #vel = f.vel_init(vel,dim,vel_spread)
@@ -113,9 +113,9 @@ for step in range(steps):
                 force[j] = force[j] - fmag*rij_unit
 
                 # add in dipole force
-#                fdip = f.calc_dipole_force(rij_unit,rij_mag,rad,efield,eMag)
-#                force[i] = force[i] + fdip
-#                force[j] = force[j] - fdip
+                fdip = f.calc_dipole_force(rij_unit,rij_mag,rad,efield,eMag,dim)
+                force[i] = force[i] + fdip
+                force[j] = force[j] - fdip
 
             if rij_mag < rad:
                 print 'particle separation distance less than 2.1*rad',
